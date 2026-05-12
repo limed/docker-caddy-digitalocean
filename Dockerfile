@@ -1,6 +1,11 @@
-FROM caddy:builder AS builder
+FROM golang:alpine AS builder
+
+RUN apk add --no-cache git
+
+RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
 
 RUN xcaddy build \
+	--output /usr/bin/caddy \
 	--with github.com/caddy-dns/digitalocean@master
 
 FROM caddy:2-alpine AS runtime
