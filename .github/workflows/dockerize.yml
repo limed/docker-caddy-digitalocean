@@ -62,12 +62,15 @@ jobs:
         id: platform
         run: echo "name=$(echo '${{ matrix.platform }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0 # v0.24.0
+
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0 # v0.24.0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-          format: spdx-json
-          output-file: sbom-${{ steps.platform.outputs.name }}.spdx.json
+        run: |
+          syft scan "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}" \
+            --platform "${{ matrix.platform }}" \
+            -o spdx-json \
+            --file "sbom-${{ steps.platform.outputs.name }}.spdx.json"
 
       - name: Scan image with Grype
         id: scan
