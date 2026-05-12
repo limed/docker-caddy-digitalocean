@@ -16,6 +16,7 @@ permissions:
   packages: write
   attestations: write
   id-token: write
+  security-events: write
 
 jobs:
   build-and-push-image:
@@ -56,6 +57,31 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sanitize platform name
+        id: platform
+        run: echo "name=$(echo '${{ matrix.platform }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ steps.platform.outputs.name }}.spdx.json
+
+      - name: Scan image with Grype
+        id: scan
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          fail-build: false
+          severity-cutoff: high
+
+      - name: Upload Grype SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-${{ steps.platform.outputs.name }}
 
       - name: Generate artifact attestation
         id: attest
